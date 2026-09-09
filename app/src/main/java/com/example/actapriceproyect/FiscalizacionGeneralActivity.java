@@ -8,7 +8,10 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import com.example.actapriceproyect.repository.ActaRepository;
 import com.google.android.material.textfield.TextInputEditText;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.Date;
 import java.util.Locale;
 import javax.inject.Inject;
 import dagger.hilt.android.AndroidEntryPoint;
@@ -99,11 +102,27 @@ public class FiscalizacionGeneralActivity extends AppCompatActivity {
     }
 
     private boolean validarCampos() {
-        if (isEmpty(etExpediente) || isEmpty(etAgente) || isEmpty(etCodigo) || isEmpty(etRucDni) || 
-            isEmpty(etFecha) || isEmpty(etHoraApertura)) {
-            Toast.makeText(this, "Debe completar los datos obligatorios (incluyendo Fecha y Hora)", Toast.LENGTH_LONG).show();
+        if (isEmpty(etExpediente) || isEmpty(etAgente) || isEmpty(etCodigo) || 
+            isEmpty(etRucDni) || isEmpty(etFecha) || isEmpty(etHoraApertura) || 
+            isEmpty(etHoraCierre) || isEmpty(etFiscalizador)) {
+            Toast.makeText(this, "Todos los campos obligatorios deben estar llenos", Toast.LENGTH_LONG).show();
             return false;
         }
+
+        // Validación: Cierre posterior a apertura
+        SimpleDateFormat sdf = new SimpleDateFormat("HH:mm", Locale.getDefault());
+        try {
+            Date apertura = sdf.parse(etHoraApertura.getText().toString());
+            Date cierre = sdf.parse(etHoraCierre.getText().toString());
+            if (cierre != null && apertura != null && cierre.before(apertura)) {
+                Toast.makeText(this, "La hora de cierre no puede ser anterior a la de apertura", Toast.LENGTH_LONG).show();
+                return false;
+            }
+        } catch (ParseException e) {
+            Toast.makeText(this, "Formato de hora inválido", Toast.LENGTH_SHORT).show();
+            return false;
+        }
+
         return true;
     }
 

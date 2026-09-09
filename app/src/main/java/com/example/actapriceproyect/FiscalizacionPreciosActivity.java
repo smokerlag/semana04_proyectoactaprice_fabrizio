@@ -42,16 +42,39 @@ public class FiscalizacionPreciosActivity extends AppCompatActivity {
         rvPrecios.setAdapter(adapter);
 
         findViewById(R.id.btnSiguiente).setOnClickListener(v -> {
-            // Convertimos la lista de productos a JSON para pasarla entre actividades
-            String productosJson = new Gson().toJson(listaProductos);
+            if (validarPrecios()) {
+                // Convertimos la lista de productos a JSON para pasarla entre actividades
+                String productosJson = new Gson().toJson(listaProductos);
 
-            Intent intent = new Intent(this, FiscalizacionVerificacionActivity.class);
-            if (getIntent().getExtras() != null) {
-                intent.putExtras(getIntent().getExtras());
+                Intent intent = new Intent(this, FiscalizacionVerificacionActivity.class);
+                if (getIntent().getExtras() != null) {
+                    intent.putExtras(getIntent().getExtras());
+                }
+                intent.putExtra("PRODUCTOS_JSON", productosJson);
+                startActivity(intent);
             }
-            intent.putExtra("PRODUCTOS_JSON", productosJson);
-            startActivity(intent);
         });
+    }
+
+    private boolean validarPrecios() {
+        for (ProductoPrecio p : listaProductos) {
+            if (isNegative(p.precioPrice) || isNegative(p.precioPublicado) || 
+                isNegative(p.precioSurtidor) || isNegative(p.precioDescuento)) {
+                Toast.makeText(this, "No se permiten precios negativos en " + p.nombre, Toast.LENGTH_SHORT).show();
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean isNegative(String val) {
+        if (val == null || val.trim().isEmpty()) return false;
+        try {
+            double d = Double.parseDouble(val);
+            return d < 0;
+        } catch (NumberFormatException e) {
+            return false;
+        }
     }
 
     private void inicializarProductos() {

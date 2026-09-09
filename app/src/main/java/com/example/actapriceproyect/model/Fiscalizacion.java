@@ -47,6 +47,16 @@ public class Fiscalizacion {
     public String firmaResponsablePath;
 
     public boolean sincronizado;
+    
+    // Funciones Avanzadas
+    public String estado; // BORRADOR, EN PROCESO, FINALIZADA, ACTA GENERADA
+    public double latitud;
+    public double longitud;
+    public String fotosJson; // Lista de rutas de fotos en formato JSON
+    public String historialCambios; // Texto descriptivo o JSON con log de cambios
 
-    public Fiscalizacion() {}
+    public Fiscalizacion() {
+        this.estado = "BORRADOR";
+        this.sincronizado = false;
+    }
 }
