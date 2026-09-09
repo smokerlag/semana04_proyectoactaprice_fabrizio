@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp"
+        android:gravity="center_horizontal">
+
+        <TextView
+            android:id="@+id/tvTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Gestión de Establecimiento"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:textColor="@color/purple_700"
+            android:gravity="center"
+            android:layout_marginBottom="32dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnNuevaFiscalizacion"
+            android:layout_width="match_parent"
+            android:layout_height="64dp"
+            android:text="NUEVA FISCALIZACIÓN"
+            android:textSize="16sp"
+            android:layout_marginBottom="16dp"
+            app:icon="@android:drawable/ic_menu_add" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnHistorial"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="64dp"
+            android:text="HISTORIAL DE ACTAS"
+            android:textSize="16sp"
+            android:layout_marginBottom="16dp"
+            app:icon="@android:drawable/ic_menu_recent_history" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnSincronizar"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="64dp"
+            android:text="SINCRONIZAR DATOS"
+            android:textSize="16sp"
+            android:layout_marginBottom="16dp"
+            app:icon="@android:drawable/ic_popup_sync" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnListarEstablecimientos"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Cambiar Establecimiento"
+            android:layout_marginBottom="8dp" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@android:color/darker_gray"
+            android:layout_marginVertical="24dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnConfiguracion"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="CONFIGURACIÓN"
+                app:icon="@android:drawable/ic_menu_preferences" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnLogout"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="SALIR"
+                android:textColor="@android:color/holo_red_dark"
+                app:icon="@android:drawable/ic_lock_power_off" />
+        </LinearLayout>
+
+    </LinearLayout>
+</ScrollView>
