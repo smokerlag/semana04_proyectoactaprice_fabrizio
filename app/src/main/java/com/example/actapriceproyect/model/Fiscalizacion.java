@@ -33,6 +33,9 @@ public class Fiscalizacion {
     public String telefonoPublicado;
     public String telefonoActualizado;
     public String horarioPublicado;
+    public String listaPreciosExhibida; // q4
+    public String unidadGalonEmpleada;  // q5
+    public String etiquetaVisible;      // q6
     
     // Módulos 07-08: Incumplimientos y Hechos
     public String incumplimientosJson;

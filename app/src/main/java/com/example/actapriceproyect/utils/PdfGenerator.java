@@ -2,6 +2,7 @@ package com.example.actapriceproyect.utils;
 
 import android.content.Context;
 import android.os.Environment;
+import android.util.Log;
 
 import com.example.actapriceproyect.model.Establecimiento;
 import com.example.actapriceproyect.model.Fiscalizacion;
@@ -9,15 +10,21 @@ import com.example.actapriceproyect.model.HechoVerificado;
 import com.example.actapriceproyect.model.ProductoPrecio;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import com.itextpdf.io.image.ImageDataFactory;
+import com.itextpdf.kernel.colors.ColorConstants;
 import com.itextpdf.kernel.colors.DeviceRgb;
 import com.itextpdf.kernel.geom.PageSize;
 import com.itextpdf.kernel.pdf.PdfDocument;
 import com.itextpdf.kernel.pdf.PdfWriter;
 import com.itextpdf.layout.Document;
+import com.itextpdf.layout.borders.Border;
+import com.itextpdf.layout.borders.SolidBorder;
 import com.itextpdf.layout.element.AreaBreak;
 import com.itextpdf.layout.element.Cell;
+import com.itextpdf.layout.element.Image;
 import com.itextpdf.layout.element.Paragraph;
 import com.itextpdf.layout.element.Table;
+import com.itextpdf.layout.element.Text;
 import com.itextpdf.layout.properties.TextAlignment;
 import com.itextpdf.layout.properties.UnitValue;
 
@@ -35,91 +42,146 @@ public class PdfGenerator {
             PdfWriter writer = new PdfWriter(new FileOutputStream(file));
             PdfDocument pdf = new PdfDocument(writer);
             Document document = new Document(pdf, PageSize.A4);
-            document.setMargins(30, 36, 30, 36);
+            document.setMargins(25, 30, 25, 30);
 
-            // --- PÁGINA 1: DATOS Y PRECIOS ---
-            document.add(new Paragraph("ACTA DE FISCALIZACIÓN - FORMATO PRICE")
-                    .setBold().setFontSize(14).setTextAlignment(TextAlignment.CENTER));
+            // --- PÁGINA 1 ---
             
-            document.add(new Paragraph("Expediente N°: " + fis.expediente)
-                    .setBold().setTextAlignment(TextAlignment.RIGHT).setFontSize(10));
+            // --- 1. ENCABEZADO OFICIAL ---
+            Table tblHead = new Table(UnitValue.createPercentArray(new float[]{3, 1})).useAllAvailableWidth();
+            tblHead.setBorder(Border.NO_BORDER);
 
-            // I. DATOS GENERALES
-            document.add(new Paragraph("I. DATOS GENERALES").setBold().setFontSize(11).setMarginTop(10));
-            Table tblGen = new Table(UnitValue.createPercentArray(new float[]{1, 1})).useAllAvailableWidth();
-            tblGen.addCell(new Cell().add(new Paragraph("Agente: " + fis.agenteFiscalizado).setFontSize(9)));
-            tblGen.addCell(new Cell().add(new Paragraph("RUC/DNI: " + fis.rucDni).setFontSize(9)));
-            tblGen.addCell(new Cell().add(new Paragraph("Código Osinergmin: " + fis.codigoOsinergmin).setFontSize(9)));
-            tblGen.addCell(new Cell().add(new Paragraph("Registro Hidrocarburos: " + fis.registroHidrocarburos).setFontSize(9)));
-            tblGen.addCell(new Cell().add(new Paragraph("Fecha: " + fis.fechaDiligencia).setFontSize(9)));
-            tblGen.addCell(new Cell().add(new Paragraph("Hora: " + fis.horaApertura).setFontSize(9)));
-            document.add(tblGen);
+            Cell cellInfo = new Cell().add(new Paragraph("Oficina Regional Huánuco\nDirección: Pasaje Mayro No 121\nTeléfono: 062 - 518499")
+                    .setFontSize(8).setItalic()).setBorder(Border.NO_BORDER);
+            tblHead.addCell(cellInfo);
 
-            // II. INFORMACIÓN DE PRECIOS
-            document.add(new Paragraph("II. INFORMACIÓN DE PRECIOS RECABADA").setBold().setFontSize(11).setMarginTop(10));
-            Table tblPrecios = new Table(UnitValue.createPercentArray(new float[]{3, 1, 1, 1, 1})).useAllAvailableWidth();
-            tblPrecios.addHeaderCell(new Cell().add(new Paragraph("Producto").setBold().setFontSize(8)));
-            tblPrecios.addHeaderCell(new Cell().add(new Paragraph("PRICE").setBold().setFontSize(8)));
-            tblPrecios.addHeaderCell(new Cell().add(new Paragraph("Public.").setBold().setFontSize(8)));
-            tblPrecios.addHeaderCell(new Cell().add(new Paragraph("Surtid.").setBold().setFontSize(8)));
-            tblPrecios.addHeaderCell(new Cell().add(new Paragraph("Descuento").setBold().setFontSize(8)));
+            Cell cellExp = new Cell().add(new Paragraph("EXPEDIENTE Nro.\n" + (fis.expediente != null ? fis.expediente : "---"))
+                    .setBold().setFontSize(10).setTextAlignment(TextAlignment.CENTER))
+                    .setBorder(new SolidBorder(0.5f)).setPadding(5);
+            tblHead.addCell(cellExp);
+            document.add(tblHead);
+
+            document.add(new Paragraph("\nActa de Fiscalización del Cumplimiento del Procedimiento de Entrega de Información de Precios de Combustibles Derivados de Hidrocarburos PRICE")
+                    .setBold().setFontSize(10).setTextAlignment(TextAlignment.CENTER).setMarginTop(10));
+
+            // --- 2. TABLA I: DATOS GENERALES ---
+            document.add(new Paragraph("I. DATOS DEL AGENTE Y DE LA DILIGENCIA").setBold().setFontSize(9).setMarginTop(10));
+            Table tblI = new Table(UnitValue.createPercentArray(new float[]{1, 2})).useAllAvailableWidth();
             
-            if (fis.productosJson != null) {
-                List<ProductoPrecio> productos = new Gson().fromJson(fis.productosJson, new TypeToken<List<ProductoPrecio>>(){}.getType());
-                for (ProductoPrecio p : productos) {
-                    tblPrecios.addCell(new Cell().add(new Paragraph(p.nombre).setFontSize(8)));
-                    tblPrecios.addCell(new Cell().add(new Paragraph(p.precioPrice).setFontSize(8)));
-                    tblPrecios.addCell(new Cell().add(new Paragraph(p.precioPublicado).setFontSize(8)));
-                    tblPrecios.addCell(new Cell().add(new Paragraph(p.precioSurtidor).setFontSize(8)));
-                    tblPrecios.addCell(new Cell().add(new Paragraph(p.precioDescuento).setFontSize(8)));
-                }
-            }
-            document.add(tblPrecios);
+            addTableRow(tblI, "AGENTE FISCALIZADO:", fis.agenteFiscalizado);
+            addTableRow(tblI, "CÓDIGO OSINERGMIN:", fis.codigoOsinergmin);
+            addTableRow(tblI, "REGISTRO HIDROCARBUROS:", fis.registroHidrocarburos);
+            addTableRow(tblI, "FECHA DE DILIGENCIA:", fis.fechaDiligencia);
+            addTableRow(tblI, "HORA DE APERTURA:", fis.horaApertura);
+            addTableRow(tblI, "HORA DE CIERRE:", fis.horaCierre);
+            addTableRow(tblI, "DIRECCIÓN:", fis.direccion);
+            addTableRow(tblI, "UBICACIÓN:", (fis.departamento + " / " + fis.provincia + " / " + fis.distrito));
+            
+            document.add(tblI);
 
-            // III. SECCIÓN OTROS (VERIFICACIÓN)
-            document.add(new Paragraph("III. SECCIÓN OTROS (VERIFICACIÓN)").setBold().setFontSize(11).setMarginTop(10));
-            Table tblOtros = new Table(UnitValue.createPercentArray(new float[]{4, 1})).useAllAvailableWidth();
-            tblOtros.addCell(new Cell().add(new Paragraph("Lista de Precios Vigente").setFontSize(9)));
-            tblOtros.addCell(new Cell().add(new Paragraph("Sí".equals(fis.horarioPublicado) ? "CUMPLE" : "NO CUMPLE").setFontSize(9)));
-            tblOtros.addCell(new Cell().add(new Paragraph("Teléfono registrado en PRICE").setFontSize(9)));
-            tblOtros.addCell(new Cell().add(new Paragraph("Sí".equals(fis.telefonoActualizado) ? "CUMPLE" : "NO CUMPLE").setFontSize(9)));
-            tblOtros.addCell(new Cell().add(new Paragraph("Unidad de Medida (Galón)").setFontSize(9)));
-            tblOtros.addCell(new Cell().add(new Paragraph("CUMPLE").setFontSize(9))); // Por defecto en PRICE
-            document.add(tblOtros);
+            // --- 3. TABLA II: CHECKLIST ---
+            document.add(new Paragraph("II. VERIFICACIÓN DE OBLIGACIONES").setBold().setFontSize(9).setMarginTop(10));
+            Table tblII = new Table(UnitValue.createPercentArray(new float[]{4, 1})).useAllAvailableWidth();
+            addVerifRow(tblII, "1. ¿Teléfono publicado en el establecimiento?", fis.telefonoPublicado);
+            addVerifRow(tblII, "2. ¿Teléfono registrado y actualizado en el PRICE?", fis.telefonoActualizado);
+            addVerifRow(tblII, "3. ¿Horario de atención publicado en el establecimiento?", fis.horarioPublicado);
+            document.add(tblII);
 
-            // FORZAR SEGUNDA PÁGINA
+            // SALTO DE PÁGINA OBLIGATORIO PARA SEGUNDA PÁGINA
             document.add(new AreaBreak());
 
-            // IV. HECHOS VERIFICADOS
-            document.add(new Paragraph("IV. HECHOS VERIFICADOS (TRAZABILIDAD)").setBold().setFontSize(11));
-            if (fis.hechosVerificados != null) {
-                List<HechoVerificado> hechos = new Gson().fromJson(fis.hechosVerificados, new TypeToken<List<HechoVerificado>>(){}.getType());
-                for (HechoVerificado h : hechos) {
-                    document.add(new Paragraph("• " + h.incumplimientoNombre).setBold().setFontSize(9));
-                    document.add(new Paragraph("  " + h.hechoRedactado).setFontSize(9).setItalic());
-                }
+            // --- PÁGINA 2 ---
+
+            // --- 4. TABLA III: HECHOS VERIFICADOS (PRECIOS Y BASE LEGAL) ---
+            document.add(new Paragraph("III. HECHOS VERIFICADOS").setBold().setFontSize(9).setMarginTop(10));
+            Table tblHechos = new Table(UnitValue.createPercentArray(new float[]{0.5f, 4, 3})).useAllAvailableWidth();
+            tblHechos.addHeaderCell(createHeader("N°"));
+            tblHechos.addHeaderCell(createHeader("INCUMPLIMIENTO / BASE LEGAL"));
+            tblHechos.addHeaderCell(createHeader("HECHOS VERIFICADOS (TRAZABILIDAD)"));
+
+            // Hechos Dinámicos de Precios
+            String hechosPrecios = parseHechosPrecios(fis.productosJson);
+            addHechoRow(tblHechos, "1", "No registra ni actualiza en el módulo PRICE el precio de venta vigente... Base Legal: Art. 3, 4, 6, 8, 14 y 15 de la R.C.D. N° 256-2021-OS/CD...", hechosPrecios);
+            addHechoRow(tblHechos, "2", "No exhibe la lista de precios vigente... Base Legal: Art. 5, 8, 14 y 15 de la R.C.D. N° 256-2021-OS/CD...", "");
+            addHechoRow(tblHechos, "3", "No registra ni actualiza en el módulo PRICE su ubicación o teléfono... Base Legal: Art. 8, 14 y 15 de la R.C.D. N° 256-2021-OS/CD...", "");
+            addHechoRow(tblHechos, "4", "No exhibe el horario de atención ni número telefónico vigente en paneles... Base Legal: Art. 8, 14 y 15 de la R.C.D. N° 256-2021-OS/CD...", "");
+            addHechoRow(tblHechos, "5", "No emplea el galón como unidad de medida... Base Legal: Art. 1 del D.S. N° 013-2021-EM.", "");
+            addHechoRow(tblHechos, "6", "No coloca en la parte frontal de los dispensadores una etiqueta visible... Base Legal: Art. 1 del D.S. N° 013-2021-EM.", "");
+
+            document.add(tblHechos);
+
+            // --- 5. SECCIÓN OTROS ---
+            document.add(new Paragraph("\nIV. OTROS").setBold().setFontSize(9));
+            document.add(new Paragraph().add(new Text("Otras ocurrencias detectadas: ").setBold()).add(new Text(fis.ocurrencias != null ? fis.ocurrencias : "Ninguna")).setFontSize(8));
+            document.add(new Paragraph().add(new Text("Documentación recabada: ").setBold()).add(new Text(fis.documentacion != null ? fis.documentacion : "Ninguna")).setFontSize(8));
+            document.add(new Paragraph().add(new Text("Manifestaciones u observaciones del Agente: ").setBold()).add(new Text(fis.observaciones != null ? fis.observaciones : "Ninguna")).setFontSize(8));
+            document.add(new Paragraph().add(new Text("Negativa a identificarse o firmar: ").setBold()).add(new Text(fis.negativaFirma ? "SÍ SE REGISTRA NEGATIVA" : "NO")).setFontSize(8));
+
+            // --- 6. ÁREA DE FIRMAS ---
+            document.add(new Paragraph("\n\n"));
+            Table tblFirmas = new Table(UnitValue.createPercentArray(new float[]{1, 1})).useAllAvailableWidth();
+            tblFirmas.setBorder(Border.NO_BORDER);
+
+            // Firma Fiscalizador
+            Cell f1 = new Cell().setBorder(Border.NO_BORDER).setTextAlignment(TextAlignment.CENTER);
+            if (fis.firmaInspectorPath != null && new File(fis.firmaInspectorPath).exists()) {
+                f1.add(new Image(ImageDataFactory.create(fis.firmaInspectorPath)).setMaxWidth(100).setHeight(50));
             }
+            f1.add(new Paragraph("__________________________\nFISCALIZADOR\nUZURIAGA CLAUDIO DARWIN\nDNI: 46060749").setFontSize(7));
+            tblFirmas.addCell(f1);
 
-            // V. OBSERVACIONES Y FIRMAS
-            document.add(new Paragraph("V. OBSERVACIONES").setBold().setFontSize(11).setMarginTop(10));
-            document.add(new Paragraph(fis.observaciones != null ? fis.observaciones : "Sin observaciones.").setFontSize(9));
-
-            if (fis.negativaFirma) {
-                document.add(new Paragraph("\nNOTA: EL RESPONSABLE SE NEGÓ A FIRMAR EL ACTA.")
-                        .setBold().setFontColor(new DeviceRgb(255, 0, 0)).setFontSize(10));
+            // Firma Receptor
+            Cell f2 = new Cell().setBorder(Border.NO_BORDER).setTextAlignment(TextAlignment.CENTER);
+            if (!fis.negativaFirma && fis.firmaResponsablePath != null && new File(fis.firmaResponsablePath).exists()) {
+                f2.add(new Image(ImageDataFactory.create(fis.firmaResponsablePath)).setMaxWidth(100).setHeight(50));
             }
+            f2.add(new Paragraph("__________________________\nPOR EL AGENTE FISCALIZADO\n(Nombre/DNI/Relación)").setFontSize(7));
+            tblFirmas.addCell(f2);
 
-            // PIE DE PÁGINA (FIRMAS)
-            document.add(new Paragraph("\n\n\n\n__________________________          __________________________")
-                    .setTextAlignment(TextAlignment.CENTER));
-            document.add(new Paragraph("Firma del Inspector                  Firma del Responsable")
-                    .setTextAlignment(TextAlignment.CENTER).setFontSize(9));
+            document.add(tblFirmas);
+
+            // --- 7. PIE DE PÁGINA LEGAL ---
+            document.add(new Paragraph("\nBASE LEGAL CONSOLIDADA: Texto único Ordenado de la Ley N° 27444, Ley N° 26734, Ley N° 27332, Ley N° 27699, D.S. N° 054-2001-PCM y R.C.D. N° 208-2020-OS/CD.")
+                    .setFontSize(6).setTextAlignment(TextAlignment.JUSTIFIED).setMarginTop(10));
 
             document.close();
             return file;
         } catch (Exception e) {
-            e.printStackTrace();
+            Log.e("PdfGenerator", "Error", e);
             return null;
         }
+    }
+
+    private static void addTableRow(Table table, String label, String value) {
+        table.addCell(new Cell().add(new Paragraph(label).setBold().setFontSize(8)));
+        table.addCell(new Cell().add(new Paragraph(value != null ? value : "").setFontSize(8)));
+    }
+
+    private static void addVerifRow(Table table, String question, String answer) {
+        table.addCell(new Cell().add(new Paragraph(question).setFontSize(8)));
+        table.addCell(new Cell().add(new Paragraph(answer != null ? answer : "---").setBold().setFontSize(8).setTextAlignment(TextAlignment.CENTER)));
+    }
+
+    private static Cell createHeader(String text) {
+        return new Cell().add(new Paragraph(text).setBold().setFontSize(8)).setBackgroundColor(ColorConstants.LIGHT_GRAY);
+    }
+
+    private static void addHechoRow(Table table, String n, String incumplimiento, String hechos) {
+        table.addCell(new Cell().add(new Paragraph(n).setFontSize(7)));
+        table.addCell(new Cell().add(new Paragraph(incumplimiento).setFontSize(7)));
+        table.addCell(new Cell().add(new Paragraph(hechos != null ? hechos : "").setFontSize(7).setItalic()));
+    }
+
+    private static String parseHechosPrecios(String json) {
+        if (json == null) return "";
+        try {
+            List<ProductoPrecio> list = new Gson().fromJson(json, new TypeToken<List<ProductoPrecio>>(){}.getType());
+            StringBuilder sb = new StringBuilder();
+            for (ProductoPrecio p : list) {
+                if (!p.precioPrice.isEmpty()) {
+                    sb.append(p.nombre).append(": P.PRICE: ").append(p.precioPrice).append(" / P.SURTIDOR: ").append(p.precioSurtidor).append("\n");
+                }
+            }
+            return sb.toString();
+        } catch (Exception e) { return ""; }
     }
 }

@@ -20,7 +20,8 @@ public class AddEstablecimientoActivity extends AppCompatActivity {
     @Inject
     ActaRepository repository;
 
-    private TextInputEditText etNombre, etRuc, etDireccion, etTelefono;
+    private TextInputEditText etNombre, etRuc, etDireccion, etCodigoOsinergmin, 
+            etActividad, etNroRegistro, etFechaEmision, etPlacaPrincipal, etUbigeo;
     private Button btnGuardar;
     private int establecimientoId = -1;
 
@@ -28,7 +29,6 @@ public class AddEstablecimientoActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         
-        // Ocultar la barra de título (banner)
         if (getSupportActionBar() != null) {
             getSupportActionBar().hide();
         }
@@ -38,7 +38,12 @@ public class AddEstablecimientoActivity extends AppCompatActivity {
         etNombre = findViewById(R.id.etNombre);
         etRuc = findViewById(R.id.etRuc);
         etDireccion = findViewById(R.id.etDireccion);
-        etTelefono = findViewById(R.id.etTelefono);
+        etCodigoOsinergmin = findViewById(R.id.etCodigoOsinergmin);
+        etActividad = findViewById(R.id.etActividad);
+        etNroRegistro = findViewById(R.id.etNroRegistro);
+        etFechaEmision = findViewById(R.id.etFechaEmision);
+        etPlacaPrincipal = findViewById(R.id.etPlacaPrincipal);
+        etUbigeo = findViewById(R.id.etUbigeo);
         btnGuardar = findViewById(R.id.btnGuardar);
 
         if (getIntent().hasExtra("ID_ESTABLECIMIENTO")) {
@@ -51,17 +56,19 @@ public class AddEstablecimientoActivity extends AppCompatActivity {
 
     private void cargarDatos() {
         new Thread(() -> {
-            Establecimiento est = repository.getAllEstablecimientos().stream()
-                    .filter(e -> e.id == establecimientoId)
-                    .findFirst()
-                    .orElse(null);
+            Establecimiento est = repository.getEstablecimientoById(establecimientoId);
             if (est != null) {
                 runOnUiThread(() -> {
                     etNombre.setText(est.nombre);
                     etRuc.setText(est.ruc);
                     etDireccion.setText(est.direccion);
-                    etTelefono.setText(est.telefono);
-                    btnGuardar.setText("Actualizar Establecimiento");
+                    etCodigoOsinergmin.setText(est.telefono);
+                    etActividad.setText(est.actividad);
+                    etNroRegistro.setText(est.nroRegistro);
+                    etFechaEmision.setText(est.fechaEmision);
+                    etPlacaPrincipal.setText(est.placaPrincipal);
+                    etUbigeo.setText(est.ubigeo);
+                    btnGuardar.setText("ACTUALIZAR ESTABLECIMIENTO");
                 });
             }
         }).start();
@@ -70,8 +77,6 @@ public class AddEstablecimientoActivity extends AppCompatActivity {
     private void guardar() {
         String nombre = etNombre.getText().toString().trim();
         String ruc = etRuc.getText().toString().trim();
-        String direccion = etDireccion.getText().toString().trim();
-        String telefono = etTelefono.getText().toString().trim();
 
         if (nombre.isEmpty() || ruc.isEmpty()) {
             Toast.makeText(this, "Nombre y RUC son obligatorios", Toast.LENGTH_SHORT).show();
@@ -80,16 +85,22 @@ public class AddEstablecimientoActivity extends AppCompatActivity {
 
         Establecimiento est = new Establecimiento();
         if (establecimientoId != -1) est.id = establecimientoId;
+        
         est.nombre = nombre;
         est.ruc = ruc;
-        est.direccion = direccion;
-        est.telefono = telefono;
+        est.direccion = etDireccion.getText().toString().trim();
+        est.telefono = etCodigoOsinergmin.getText().toString().trim();
+        est.actividad = etActividad.getText().toString().trim();
+        est.nroRegistro = etNroRegistro.getText().toString().trim();
+        est.fechaEmision = etFechaEmision.getText().toString().trim();
+        est.placaPrincipal = etPlacaPrincipal.getText().toString().trim();
+        est.ubigeo = etUbigeo.getText().toString().trim();
         est.sincronizado = false;
 
         new Thread(() -> {
             repository.insertEstablecimiento(est);
             runOnUiThread(() -> {
-                Toast.makeText(this, "Establecimiento guardado", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Establecimiento guardado exitosamente", Toast.LENGTH_SHORT).show();
                 finish();
             });
         }).start();

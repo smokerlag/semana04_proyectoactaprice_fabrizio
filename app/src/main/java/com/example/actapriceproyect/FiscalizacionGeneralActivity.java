@@ -44,6 +44,46 @@ public class FiscalizacionGeneralActivity extends AppCompatActivity {
         etTelefonoFax = findViewById(R.id.etTelefonoFax);
         etFiscalizador = findViewById(R.id.etFiscalizadorResponsable);
 
+        // Carga y Precarga inteligente desde Base de Datos Local
+        int establecimientoId = getIntent().getIntExtra("ESTABLECIMIENTO_ID", -1);
+        if (establecimientoId != -1) {
+            new Thread(() -> {
+                com.example.actapriceproyect.model.Establecimiento est = repository.getEstablecimientoById(establecimientoId);
+                if (est != null) {
+                    runOnUiThread(() -> {
+                        etAgente.setText(est.nombre);
+                        etRucDni.setText(est.ruc);
+                        etDireccion.setText(est.direccion);
+                        etCodigo.setText(est.telefono); // Código Osinergmin mapeado
+
+                        // Procesar UBIGEO (Formato esperado: DEPARTAMENTO / PROVINCIA / DISTRITO)
+                        if (est.ubigeo != null && est.ubigeo.contains("/")) {
+                            String[] partes = est.ubigeo.split("/");
+                            if (partes.length >= 1) etDepartamento.setText(partes[0].trim());
+                            if (partes.length >= 2) etProvincia.setText(partes[1].trim());
+                            if (partes.length >= 3) etDistrito.setText(partes[2].trim());
+                        }
+
+                        // Bloquear campos para evitar modificaciones accidentales
+                        etAgente.setFocusable(false);
+                        etAgente.setClickable(false);
+                        etRucDni.setFocusable(false);
+                        etRucDni.setClickable(false);
+                        etDireccion.setFocusable(false);
+                        etDireccion.setClickable(false);
+                        etCodigo.setFocusable(false);
+                        etCodigo.setClickable(false);
+                        etDepartamento.setFocusable(false);
+                        etDepartamento.setClickable(false);
+                        etProvincia.setFocusable(false);
+                        etProvincia.setClickable(false);
+                        etDistrito.setFocusable(false);
+                        etDistrito.setClickable(false);
+                    });
+                }
+            }).start();
+        }
+
         // Configurar Date y Time Pickers
         etFecha.setOnClickListener(v -> showDatePickerDialog(etFecha));
         etHoraApertura.setOnClickListener(v -> showTimePickerDialog(etHoraApertura));

@@ -43,7 +43,7 @@ public class FiscalizacionPreciosActivity extends AppCompatActivity {
 
         findViewById(R.id.btnSiguiente).setOnClickListener(v -> {
             if (validarPrecios()) {
-                // Convertimos la lista de productos a JSON para pasarla entre actividades
+                // Cada campo de precio se guarda tal cual (pueden ser distintos entre sí)
                 String productosJson = new Gson().toJson(listaProductos);
 
                 Intent intent = new Intent(this, FiscalizacionVerificacionActivity.class);
@@ -58,13 +58,29 @@ public class FiscalizacionPreciosActivity extends AppCompatActivity {
 
     private boolean validarPrecios() {
         for (ProductoPrecio p : listaProductos) {
-            if (isNegative(p.precioPrice) || isNegative(p.precioPublicado) || 
+            // Solo se valida formato; no se exige que PRICE = publicado = surtidor = descuento
+            if (isNegative(p.precioPrice) || isNegative(p.precioPublicado) ||
                 isNegative(p.precioSurtidor) || isNegative(p.precioDescuento)) {
                 Toast.makeText(this, "No se permiten precios negativos en " + p.nombre, Toast.LENGTH_SHORT).show();
                 return false;
             }
+            if (!isValidNumberOrEmpty(p.precioPrice) || !isValidNumberOrEmpty(p.precioPublicado) ||
+                !isValidNumberOrEmpty(p.precioSurtidor) || !isValidNumberOrEmpty(p.precioDescuento)) {
+                Toast.makeText(this, "Precio inválido en " + p.nombre, Toast.LENGTH_SHORT).show();
+                return false;
+            }
         }
         return true;
+    }
+
+    private boolean isValidNumberOrEmpty(String val) {
+        if (val == null || val.trim().isEmpty()) return true;
+        try {
+            Double.parseDouble(val.trim());
+            return true;
+        } catch (NumberFormatException e) {
+            return false;
+        }
     }
 
     private boolean isNegative(String val) {
@@ -79,15 +95,14 @@ public class FiscalizacionPreciosActivity extends AppCompatActivity {
 
     private void inicializarProductos() {
         listaProductos = new ArrayList<>();
-        // Combustibles Líquidos
-        listaProductos.add(new ProductoPrecio("Diesel B5 / Diesel B5 S-50"));
-        listaProductos.add(new ProductoPrecio("G-84 / Gasohol 84 Plus"));
-        listaProductos.add(new ProductoPrecio("Gasolina Regular / Gasohol Regular"));
-        listaProductos.add(new ProductoPrecio("Gasolina Premium / Gasohol Premium"));
+        // Orden alineado a la plantilla del acta
+        listaProductos.add(new ProductoPrecio("Diesel B5 S-50"));
+        listaProductos.add(new ProductoPrecio("Gasohol 84 Plus"));
+        listaProductos.add(new ProductoPrecio("Gasohol Regular"));
+        listaProductos.add(new ProductoPrecio("Gasohol Premium"));
         listaProductos.add(new ProductoPrecio("GLP Automotor"));
-        listaProductos.add(new ProductoPrecio("Otros / Marca"));
-
-        // GLP Envasado
+        // En el acta oficial hay 2 columnas: OTROS (precios) y MARCA (nombre comercial)
+        listaProductos.add(new ProductoPrecio("Otros", true));
         listaProductos.add(new ProductoPrecio("GLP Envasado 3 kg"));
         listaProductos.add(new ProductoPrecio("GLP Envasado 5 kg"));
         listaProductos.add(new ProductoPrecio("GLP Envasado 10 kg"));

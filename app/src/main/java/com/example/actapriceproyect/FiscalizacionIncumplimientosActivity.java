@@ -123,16 +123,23 @@ public class FiscalizacionIncumplimientosActivity extends AppCompatActivity {
                 String prPrice = (p.precioPrice != null) ? p.precioPrice.trim() : "";
                 String prPub = (p.precioPublicado != null) ? p.precioPublicado.trim() : "";
                 String prSur = (p.precioSurtidor != null) ? p.precioSurtidor.trim() : "";
+                String prDesc = (p.precioDescuento != null) ? p.precioDescuento.trim() : "";
 
-                if (!prPrice.isEmpty() || !prPub.isEmpty() || !prSur.isEmpty()) algunPrecioIngresado = true;
+                // Los 4 tipos de precio son independientes: pueden diferir sin problema.
+                if (!prPrice.isEmpty() || !prPub.isEmpty() || !prSur.isEmpty() || !prDesc.isEmpty()) {
+                    algunPrecioIngresado = true;
+                }
 
-                if ((!prPub.isEmpty() || !prSur.isEmpty()) && prPrice.isEmpty()) inc1Detectado = true;
-                if (!prPrice.isEmpty() && !prPub.isEmpty() && !prPrice.equals(prPub)) inc1Detectado = true;
-                if (!prPrice.isEmpty() && !prSur.isEmpty() && !prPrice.equals(prSur)) inc1Detectado = true;
+                // Solo se marca incumplimiento si hay precio exhibido/surtidor
+                // pero no está registrado en PRICE (omisión de registro).
+                if ((!prPub.isEmpty() || !prSur.isEmpty()) && prPrice.isEmpty()) {
+                    inc1Detectado = true;
+                }
             }
 
             if (inc1Detectado) {
-                incumplimientosDetectados.add("Incumplimiento 1: discrepancia detectada o falta de precios en PRICE.");
+                incumplimientosDetectados.add(
+                        "Incumplimiento 1: hay precios publicados/surtidor sin registro en PRICE.");
             }
             if (!algunPrecioIngresado) {
                 incumplimientosDetectados.add("ALERTA: No se ha registrado información de precios.");

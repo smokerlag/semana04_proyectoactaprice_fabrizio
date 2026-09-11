@@ -1,6 +1,6 @@
 [versions]
-agp = "8.13.2"
-kotlin = "2.0.21"
+agp = "9.3.2"
+kotlin = "2.2.10"
 coreKtx = "1.15.0"
 junit = "4.13.2"
 junitVersion = "1.2.1"
@@ -18,6 +18,7 @@ itext = "7.2.5"
 appcompat = "1.7.0"
 material = "1.12.0"
 poi = "5.2.3"
+asposeWords = "24.3"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -62,6 +63,9 @@ itext-core = { group = "com.itextpdf", name = "itext7-core", version.ref = "itex
 
 # Apache POI (Word)
 poi-ooxml = { group = "org.apache.poi", name = "poi-ooxml", version.ref = "poi" }
+
+# Aspose Words (Conversion)
+aspose-words = { group = "com.aspose", name = "aspose-words", version.ref = "asposeWords" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

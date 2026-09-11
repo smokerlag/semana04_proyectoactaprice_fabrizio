@@ -11,7 +11,14 @@ public class Establecimiento {
     public String nombre;
     public String ruc;
     public String direccion;
-    public String telefono;
+    public String telefono; // Usado para Código Osinergmin
+    public String ubigeo;
+    
+    // Nuevos campos estándar Osinergmin
+    public String actividad;
+    public String nroRegistro;
+    public String fechaEmision;
+    public String placaPrincipal;
     
     public boolean sincronizado;
 
