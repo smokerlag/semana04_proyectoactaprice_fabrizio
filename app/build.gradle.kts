@@ -95,9 +95,6 @@ dependencies {
 
     // Apache POI (Word)
     implementation(libs.poi.ooxml)
-    
-    // Aspose Words (Conversion Word -> PDF con fidelidad 1:1)
-    implementation("com.aspose:aspose-words:24.3:android.via.java")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

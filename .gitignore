@@ -9,7 +9,43 @@
 /.idea/assetWizardSettings.xml
 .DS_Store
 /build
+**/build/
 /captures
 .externalNativeBuild
 .cxx
 local.properties
+
+# Node / API
+**/node_modules/
+entrega/api/data/*.db
+entrega/api/data/*.db-*
+entrega/api/data/tmp/*
+!entrega/api/data/tmp/.gitkeep
+npm-debug.log*
+yarn-error.log*
+
+# Android / IDE junk
+*.apk
+*.ap_
+*.dex
+*.class
+.idea/
+*.hprof
+.cxx/
+
+# OS / temp
+Thumbs.db
+*.log
+*.tmp
+*.temp
+__MACOSX/
+
+# Inspect / backup plantillas (no versionar)
+app/src/main/assets/_inspect*/
+app/src/main/assets/_plantillas_backup/
+app/src/main/assets/_split_work/
+app/src/main/assets/_verify_slim/
+app/src/main/assets/temp_docx/
+app/src/main/assets/plantilla_p1.docx
+app/src/main/assets/plantilla_p2.docx
+app/src/main/assets/plantilla_full.docx

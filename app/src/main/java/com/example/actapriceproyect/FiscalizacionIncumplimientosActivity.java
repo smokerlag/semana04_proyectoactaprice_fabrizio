@@ -82,12 +82,21 @@ public class FiscalizacionIncumplimientosActivity extends AppCompatActivity {
         actualizarEstadoUI();
 
         btnSiguiente.setOnClickListener(v -> {
+            List<String> incumplimientosReales = filtrarIncumplimientosDelActa();
             JSONArray jsonArray = new JSONArray();
-            for (String s : incumplimientosDetectados) {
+            for (String s : incumplimientosReales) {
                 jsonArray.put(s);
             }
 
-            Intent intent = new Intent(this, FiscalizacionHechosActivity.class);
+            Intent intent;
+            if (incumplimientosReales.isEmpty()) {
+                // Sin incumplimientos 1-6: no pedir hechos verificados
+                intent = new Intent(this, FiscalizacionFirmasActivity.class);
+                intent.putExtra("HECHOS_JSON", "[]");
+            } else {
+                intent = new Intent(this, FiscalizacionHechosActivity.class);
+            }
+
             if (getIntent().getExtras() != null) {
                 intent.putExtras(getIntent().getExtras());
             }
@@ -97,16 +106,33 @@ public class FiscalizacionIncumplimientosActivity extends AppCompatActivity {
     }
 
     private void actualizarEstadoUI() {
+        List<String> reales = filtrarIncumplimientosDelActa();
         if (incumplimientosDetectados.isEmpty()) {
             tvEmpty.setVisibility(View.VISIBLE);
             tvEmpty.setText("SITUACIÓN CONFORME:\nNo se detectaron discrepancias ni omisiones. Puede continuar.");
             rvIncumplimientos.setVisibility(View.GONE);
-            btnSiguiente.setText("CONTINUAR A HECHOS VERIFICADOS");
+            btnSiguiente.setText("CONTINUAR A FIRMAS");
+        } else if (reales.isEmpty()) {
+            tvEmpty.setVisibility(View.GONE);
+            rvIncumplimientos.setVisibility(View.VISIBLE);
+            btnSiguiente.setText("CONTINUAR A FIRMAS");
         } else {
             tvEmpty.setVisibility(View.GONE);
             rvIncumplimientos.setVisibility(View.VISIBLE);
-            btnSiguiente.setText("IGNORAR Y CONTINUAR");
+            btnSiguiente.setText("CONTINUAR A HECHOS VERIFICADOS");
         }
+    }
+
+    /** Solo los incumplimientos 1–6 del acta (ignora alertas u otros avisos). */
+    private List<String> filtrarIncumplimientosDelActa() {
+        List<String> reales = new ArrayList<>();
+        if (incumplimientosDetectados == null) return reales;
+        for (String s : incumplimientosDetectados) {
+            if (s != null && s.matches("(?i).*Incumplimiento\\s*[1-6].*")) {
+                reales.add(s);
+            }
+        }
+        return reales;
     }
 
     private void detectarIncumplimientos() {

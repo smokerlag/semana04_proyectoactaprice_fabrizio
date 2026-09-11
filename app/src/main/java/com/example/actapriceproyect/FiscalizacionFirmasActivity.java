@@ -49,6 +49,16 @@ public class FiscalizacionFirmasActivity extends AppCompatActivity {
         btnClearF = findViewById(R.id.btnClearFirmaF);
         btnClearR = findViewById(R.id.btnClearFirmaR);
 
+        android.text.InputFilter soloDigitos = (source, start, end, dest, dstart, dend) -> {
+            for (int i = start; i < end; i++) {
+                if (!Character.isDigit(source.charAt(i))) return "";
+            }
+            return null;
+        };
+        etReceptorDni.setFilters(new android.text.InputFilter[]{
+                soloDigitos, new android.text.InputFilter.LengthFilter(8)
+        });
+
         btnClearF.setOnClickListener(v -> signatureF.clear());
         btnClearR.setOnClickListener(v -> signatureR.clear());
 
@@ -123,6 +133,12 @@ public class FiscalizacionFirmasActivity extends AppCompatActivity {
                 etReceptorDni.getText().toString().trim().isEmpty() ||
                 etReceptorRelacion.getText().toString().trim().isEmpty()) {
                 Toast.makeText(this, "Complete los datos del receptor", Toast.LENGTH_SHORT).show();
+                return false;
+            }
+            String dni = etReceptorDni.getText().toString().trim();
+            if (!dni.matches("\\d{8}")) {
+                Toast.makeText(this, "El DNI debe tener exactamente 8 dígitos", Toast.LENGTH_LONG).show();
+                etReceptorDni.requestFocus();
                 return false;
             }
         }
