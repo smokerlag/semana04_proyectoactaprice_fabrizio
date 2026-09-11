@@ -161,8 +161,8 @@ public class FiscalizacionPreviewActivity extends AppCompatActivity {
                                 Toast.LENGTH_LONG).show();
                         abrirArchivo(pdfGenerado, "application/pdf");
                     } else {
-                        tvEstadoDocs.setText("Error al generar el documento. Revise la plantilla y los datos.");
-                        Toast.makeText(this, "Error: no se pudo generar el Word/PDF.", Toast.LENGTH_LONG).show();
+                        tvEstadoDocs.setText("Error al generar. Requiere API + Word en el PC (misma Wi‑Fi).");
+                        Toast.makeText(this, "Error: active la API en el PC e intente de nuevo.", Toast.LENGTH_LONG).show();
                     }
                 });
             } catch (Exception e) {

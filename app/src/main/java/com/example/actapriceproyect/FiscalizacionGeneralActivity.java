@@ -44,6 +44,19 @@ public class FiscalizacionGeneralActivity extends AppCompatActivity {
         etTelefonoFax = findViewById(R.id.etTelefonoFax);
         etFiscalizador = findViewById(R.id.etFiscalizadorResponsable);
 
+        // Solo dígitos en expediente, registro y teléfono
+        android.text.InputFilter soloDigitos = (source, start, end, dest, dstart, dend) -> {
+            for (int i = start; i < end; i++) {
+                if (!Character.isDigit(source.charAt(i))) return "";
+            }
+            return null;
+        };
+        etExpediente.setFilters(new android.text.InputFilter[]{soloDigitos});
+        etRegistro.setFilters(new android.text.InputFilter[]{soloDigitos});
+        etTelefonoFax.setFilters(new android.text.InputFilter[]{
+                soloDigitos, new android.text.InputFilter.LengthFilter(9)
+        });
+
         // Carga y Precarga inteligente desde Base de Datos Local
         int establecimientoId = getIntent().getIntExtra("ESTABLECIMIENTO_ID", -1);
         if (establecimientoId != -1) {
@@ -142,10 +155,31 @@ public class FiscalizacionGeneralActivity extends AppCompatActivity {
     }
 
     private boolean validarCampos() {
-        if (isEmpty(etExpediente) || isEmpty(etAgente) || isEmpty(etCodigo) || 
-            isEmpty(etRucDni) || isEmpty(etFecha) || isEmpty(etHoraApertura) || 
+        if (isEmpty(etExpediente) || isEmpty(etAgente) || isEmpty(etCodigo) ||
+            isEmpty(etRucDni) || isEmpty(etFecha) || isEmpty(etHoraApertura) ||
             isEmpty(etHoraCierre) || isEmpty(etFiscalizador)) {
             Toast.makeText(this, "Todos los campos obligatorios deben estar llenos", Toast.LENGTH_LONG).show();
+            return false;
+        }
+
+        String expediente = etExpediente.getText().toString().trim();
+        if (!expediente.matches("\\d+")) {
+            Toast.makeText(this, "El número de expediente solo debe contener dígitos", Toast.LENGTH_LONG).show();
+            etExpediente.requestFocus();
+            return false;
+        }
+
+        String registro = etRegistro.getText().toString().trim();
+        if (!registro.isEmpty() && !registro.matches("\\d+")) {
+            Toast.makeText(this, "El registro de hidrocarburos solo debe contener dígitos", Toast.LENGTH_LONG).show();
+            etRegistro.requestFocus();
+            return false;
+        }
+
+        String telefono = etTelefonoFax.getText().toString().trim();
+        if (telefono.isEmpty() || !telefono.matches("\\d{9}")) {
+            Toast.makeText(this, "El teléfono/fax debe tener exactamente 9 dígitos", Toast.LENGTH_LONG).show();
+            etTelefonoFax.requestFocus();
             return false;
         }
 

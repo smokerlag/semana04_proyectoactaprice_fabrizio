@@ -58,6 +58,17 @@ public class FiscalizacionHechosActivity extends AppCompatActivity {
         rvHechos.setLayoutManager(new LinearLayoutManager(this));
 
         prepararListaHechos();
+        if (listaHechos.isEmpty()) {
+            // Sin incumplimientos 1-6: ir directo a firmas
+            Intent intent = new Intent(this, FiscalizacionFirmasActivity.class);
+            if (getIntent().getExtras() != null) {
+                intent.putExtras(getIntent().getExtras());
+            }
+            intent.putExtra("HECHOS_JSON", "[]");
+            startActivity(intent);
+            finish();
+            return;
+        }
 
         adapter = new HechosAdapter(listaHechos);
         rvHechos.setAdapter(adapter);
@@ -85,20 +96,20 @@ public class FiscalizacionHechosActivity extends AppCompatActivity {
         String incumplimientosJson = getIntent().getStringExtra("INCUMPLIMIENTOS_JSON");
         String fechaActual = new SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(new Date());
         String usuarioActual = sessionManager.getUserName();
-        
+
         if (incumplimientosJson != null) {
             try {
                 JSONArray jsonArray = new JSONArray(incumplimientosJson);
                 for (int i = 0; i < jsonArray.length(); i++) {
-                    listaHechos.add(new HechoVerificado(jsonArray.getString(i), fechaActual, usuarioActual));
+                    String nombre = jsonArray.getString(i);
+                    // Solo incumplimientos 1–6 del acta oficial
+                    if (nombre != null && nombre.matches("(?i).*Incumplimiento\\s*[1-6].*")) {
+                        listaHechos.add(new HechoVerificado(nombre, fechaActual, usuarioActual));
+                    }
                 }
             } catch (JSONException e) {
                 e.printStackTrace();
             }
-        }
-        
-        if (listaHechos.isEmpty()) {
-            listaHechos.add(new HechoVerificado("Observación General / Sin Incumplimientos Específicos", fechaActual, usuarioActual));
         }
     }
 

@@ -2,29 +2,44 @@ package com.example.actapriceproyect.utils;
 
 import android.content.Context;
 import android.os.Environment;
+import android.util.Base64;
 import android.util.Log;
 
-import com.aspose.words.*;
+import com.example.actapriceproyect.di.NetworkModule;
 import com.itextpdf.kernel.pdf.PdfDocument;
 import com.itextpdf.kernel.pdf.PdfReader;
-import com.itextpdf.kernel.pdf.PdfWriter;
 
+import org.apache.poi.util.Units;
+import org.apache.poi.xwpf.usermodel.XWPFDocument;
+import org.apache.poi.xwpf.usermodel.XWPFParagraph;
+import org.apache.poi.xwpf.usermodel.XWPFRun;
+import org.apache.poi.xwpf.usermodel.XWPFTable;
+import org.apache.poi.xwpf.usermodel.XWPFTableCell;
+import org.apache.poi.xwpf.usermodel.XWPFTableRow;
+import org.json.JSONObject;
+
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
 /**
- * Llena la plantilla DOCX y exporta DOCX + PDF.
- * La página 2 (III. OTROS + firmas) se garantiza partiendo el doc y uniendo PDFs.
+ * Llena la plantilla oficial con Apache POI (sin límite de Aspose)
+ * y convierte a PDF en el PC vía API + Microsoft Word (2 páginas fieles).
  */
 public class WordGenerator {
 
     private static final String TAG = "WordGenerator";
 
-    /** Resultado con archivos y número real de páginas del PDF. */
     public static class Resultado {
         public final File docx;
         public final File pdf;
@@ -61,9 +76,7 @@ public class WordGenerator {
         File pdfFile = new File(docsDir, "Acta_PRICE_" + timestamp + ".pdf");
 
         try {
-            File tempTemplate = copiarPlantilla(context, templateName);
-            Document doc = new Document(tempTemplate.getAbsolutePath());
-            DocumentBuilder builder = new DocumentBuilder(doc);
+            Log.e(TAG, "=== INICIO generar (POI + Word API) ===");
 
             Map<String, String> safeDatos = new HashMap<>();
             if (datos != null) {
@@ -72,197 +85,175 @@ public class WordGenerator {
                 }
             }
 
-            FindReplaceOptions opts = new FindReplaceOptions();
-            for (Map.Entry<String, String> entry : safeDatos.entrySet()) {
-                doc.getRange().replace("{{" + entry.getKey() + "}}", entry.getValue(), opts);
+            String asset = resolverPlantilla(context, templateName);
+            Log.e(TAG, "Plantilla: " + asset);
+
+            try (InputStream in = context.getAssets().open(asset);
+                 XWPFDocument doc = new XWPFDocument(in)) {
+
+                reemplazarPlaceholders(doc, safeDatos);
+                llenarTablaPrecios(doc, listaProductos);
+                llenarTablaHechos(doc, listaHechos);
+                pegarFirmasEnTabla(doc, pathsFirmas);
+                // Quitar placeholders sueltos de firma (están fuera de la tabla de firmas)
+                replaceInDocument(doc, "{{ firma_f }}", "");
+                replaceInDocument(doc, "{{ firma_r }}", "");
+                replaceInDocument(doc, "{{firma_f}}", "");
+                replaceInDocument(doc, "{{firma_r}}", "");
+                limpiarPlaceholdersRestantes(doc);
+
+                try (FileOutputStream fos = new FileOutputStream(docxFile)) {
+                    doc.write(fos);
+                }
             }
-            doc.getRange().replace("{{documentacion}", safeDatos.getOrDefault("documentacion", ""), opts);
-            doc.getRange().replace("{{manifestaciones}", safeDatos.getOrDefault("manifestaciones", ""), opts);
 
-            llenarTablaPrecios(doc, listaProductos);
-            llenarTablaHechos(doc, listaHechos);
+            Log.e(TAG, "DOCX OK bytes=" + docxFile.length() + " -> " + docxFile.getName());
 
-            pegarFirmaEnWord(doc, builder, "{{firma_f}}", pathsFirmas != null ? pathsFirmas.get("firma_f") : null);
-            pegarFirmaEnWord(doc, builder, "{{firma_r}}", pathsFirmas != null ? pathsFirmas.get("firma_r") : null);
+            boolean pdfOk = convertirPdfConWordApi(docxFile, pdfFile);
+            int paginas = pdfOk ? contarPaginasPdf(pdfFile) : 0;
+            Log.e(TAG, "PDF via Word API ok=" + pdfOk + " paginas=" + paginas
+                    + " bytes=" + (pdfFile.exists() ? pdfFile.length() : 0));
 
-            doc.getRange().replace(java.util.regex.Pattern.compile("\\{\\{[^}]+\\}\\}"), "", opts);
+            if (!pdfOk || paginas < 1) {
+                throw new IllegalStateException(
+                        "No se pudo convertir a PDF. ¿API + Word corriendo en el PC?");
+            }
 
-            // Marca el inicio de página 2 en el propio párrafo (Word nativo)
-            Paragraph anclaPag2 = marcarInicioPagina2(doc);
-
-            doc.updatePageLayout();
-            doc.save(docxFile.getAbsolutePath(), SaveFormat.DOCX);
-
-            // PDF garantizado a 2 páginas si existe ancla (III. OTROS / firmas)
-            int paginas = guardarPdfConPagina2(doc, anclaPag2, pdfFile, docsDir, timestamp);
-
-            Log.i(TAG, "OK docx=" + docxFile.getName() + " pdfPaginas=" + paginas);
             return new Resultado(docxFile, pdfFile, paginas);
 
-        } catch (Exception e) {
-            Log.e(TAG, "Error generando documentos", e);
+        } catch (Throwable e) {
+            Log.e(TAG, "Error generando documentos: " + e.getMessage(), e);
             return null;
         }
     }
 
-    /**
-     * Si Aspose deja todo en 1 página, parte el documento en dos y une los PDF con iText.
-     */
-    private static int guardarPdfConPagina2(Document doc, Paragraph anclaPag2,
-                                            File pdfFinal, File docsDir, long ts) throws Exception {
-        File pdfDirecto = new File(docsDir, "tmp_direct_" + ts + ".pdf");
-        doc.save(pdfDirecto.getAbsolutePath(), SaveFormat.PDF);
-        int pages = contarPaginasPdf(pdfDirecto);
-
-        if (pages >= 2 || anclaPag2 == null) {
-            if (pdfFinal.exists()) pdfFinal.delete();
-            if (!pdfDirecto.renameTo(pdfFinal)) {
-                copiarArchivo(pdfDirecto, pdfFinal);
-                pdfDirecto.delete();
-            }
-            return Math.max(pages, 1);
-        }
-
-        // Forzar 2 páginas: partir en ancla
-        int idx = indiceHijoBodyQueContiene(doc, anclaPag2);
-        if (idx < 0) {
-            if (!pdfDirecto.renameTo(pdfFinal)) {
-                copiarArchivo(pdfDirecto, pdfFinal);
-                pdfDirecto.delete();
-            }
-            return pages;
-        }
-
-        Document parte1 = (Document) doc.deepClone(true);
-        Document parte2 = (Document) doc.deepClone(true);
-        recortarBodyHasta(parte1, idx, true);  // deja [0 .. idx)
-        recortarBodyHasta(parte2, idx, false); // deja [idx .. end)
-
-        File pdf1 = new File(docsDir, "tmp_p1_" + ts + ".pdf");
-        File pdf2 = new File(docsDir, "tmp_p2_" + ts + ".pdf");
-        parte1.save(pdf1.getAbsolutePath(), SaveFormat.PDF);
-        parte2.save(pdf2.getAbsolutePath(), SaveFormat.PDF);
-
-        unirPdfs(pdf1, pdf2, pdfFinal);
-
-        pdfDirecto.delete();
-        pdf1.delete();
-        pdf2.delete();
-
-        int merged = contarPaginasPdf(pdfFinal);
-        Log.i(TAG, "PDF forzado por split+merge, paginas=" + merged);
-        return merged;
-    }
-
-    private static Paragraph marcarInicioPagina2(Document doc) throws Exception {
-        Paragraph target = buscarParrafoFueraDeTabla(doc, "III", "OTROS");
-        if (target == null) {
-            // Si no hay III. OTROS, intenta LEYENDA (sigue siendo antes de firmas)
-            target = buscarParrafoFueraDeTabla(doc, "LEYENDA", null);
-        }
-        if (target != null) {
-            target.getParagraphFormat().setPageBreakBefore(true);
-            Log.i(TAG, "pageBreakBefore=true en: " + safeTrim(target.getText()));
-        } else {
-            Log.w(TAG, "No se encontró ancla de página 2");
-        }
-        return target;
-    }
-
-    private static Paragraph buscarParrafoFueraDeTabla(Document doc, String a, String b) {
-        NodeCollection paragraphs = doc.getChildNodes(NodeType.PARAGRAPH, true);
-        for (Paragraph p : (Iterable<Paragraph>) paragraphs) {
-            if (p.getAncestor(NodeType.TABLE) != null) continue;
-            String t = p.getText();
-            if (t == null) continue;
-            String up = t.toUpperCase(Locale.ROOT);
-            if (!up.contains(a.toUpperCase(Locale.ROOT))) continue;
-            if (b != null && !up.contains(b.toUpperCase(Locale.ROOT))) continue;
-            return p;
-        }
-        return null;
-    }
-
-    private static int indiceHijoBodyQueContiene(Document doc, Node nodo) {
-        Body body = doc.getFirstSection().getBody();
-        Node top = nodo;
-        while (top != null && top.getParentNode() != null
-                && top.getParentNode().getNodeType() != NodeType.BODY) {
-            top = top.getParentNode();
-        }
-        if (top == null) return -1;
-        NodeCollection kids = body.getChildNodes(NodeType.ANY, false);
-        for (int i = 0; i < kids.getCount(); i++) {
-            if (kids.get(i) == top) return i;
-        }
-        return -1;
-    }
-
-    /** keepHead=true: conserva [0..idx). keepHead=false: conserva [idx..fin). */
-    private static void recortarBodyHasta(Document doc, int idx, boolean keepHead) {
-        Body body = doc.getFirstSection().getBody();
-        NodeCollection kids = body.getChildNodes(NodeType.ANY, false);
-        if (keepHead) {
-            for (int i = kids.getCount() - 1; i >= idx; i--) {
-                kids.get(i).remove();
-            }
-        } else {
-            for (int i = 0; i < idx; i++) {
-                if (body.getFirstChild() != null) body.getFirstChild().remove();
-            }
-        }
-    }
-
-    private static void unirPdfs(File pdf1, File pdf2, File out) throws Exception {
-        if (out.exists()) out.delete();
-        PdfDocument dest = new PdfDocument(new PdfWriter(out.getAbsolutePath()));
-        PdfDocument src1 = new PdfDocument(new PdfReader(pdf1.getAbsolutePath()));
-        PdfDocument src2 = new PdfDocument(new PdfReader(pdf2.getAbsolutePath()));
-        src1.copyPagesTo(1, src1.getNumberOfPages(), dest);
-        src2.copyPagesTo(1, src2.getNumberOfPages(), dest);
-        src1.close();
-        src2.close();
-        dest.close();
-    }
-
-    private static int contarPaginasPdf(File pdf) {
+    /** Envía el DOCX a la API; el PC lo abre con Microsoft Word y exporta PDF. */
+    private static boolean convertirPdfConWordApi(File docx, File pdfOut) {
+        HttpURLConnection conn = null;
         try {
-            PdfDocument doc = new PdfDocument(new PdfReader(pdf.getAbsolutePath()));
-            int n = doc.getNumberOfPages();
-            doc.close();
-            return n;
+            byte[] bytes = leerArchivo(docx);
+            String b64 = Base64.encodeToString(bytes, Base64.NO_WRAP);
+            JSONObject body = new JSONObject();
+            body.put("docxBase64", b64);
+            body.put("fileName", docx.getName());
+
+            URL url = new URL(NetworkModule.getBaseUrl() + "documentos/docx-to-pdf");
+            Log.e(TAG, "POST " + url);
+            conn = (HttpURLConnection) url.openConnection();
+            conn.setConnectTimeout(15000);
+            conn.setReadTimeout(120000);
+            conn.setRequestMethod("POST");
+            conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+            conn.setDoOutput(true);
+            byte[] payload = body.toString().getBytes(StandardCharsets.UTF_8);
+            conn.setFixedLengthStreamingMode(payload.length);
+            try (OutputStream os = conn.getOutputStream()) {
+                os.write(payload);
+            }
+
+            int code = conn.getResponseCode();
+            InputStream stream = code >= 200 && code < 300 ? conn.getInputStream() : conn.getErrorStream();
+            byte[] resp = leerStream(stream);
+            if (code < 200 || code >= 300) {
+                Log.e(TAG, "API PDF error HTTP " + code + " " + new String(resp, StandardCharsets.UTF_8));
+                return false;
+            }
+
+            JSONObject json = new JSONObject(new String(resp, StandardCharsets.UTF_8));
+            String pdfB64 = json.optString("pdfBase64", "");
+            if (pdfB64.isEmpty()) {
+                Log.e(TAG, "API no devolvió pdfBase64: " + json.optString("error"));
+                return false;
+            }
+            byte[] pdfBytes = Base64.decode(pdfB64, Base64.DEFAULT);
+            try (FileOutputStream fos = new FileOutputStream(pdfOut)) {
+                fos.write(pdfBytes);
+            }
+            return pdfOut.exists() && pdfOut.length() > 100;
         } catch (Exception e) {
-            Log.w(TAG, "No se pudo contar páginas PDF", e);
-            return 1;
+            Log.e(TAG, "convertirPdfConWordApi falló", e);
+            return false;
+        } finally {
+            if (conn != null) conn.disconnect();
         }
     }
 
-    private static void copiarArchivo(File from, File to) throws Exception {
-        try (InputStream in = new java.io.FileInputStream(from);
-             java.io.FileOutputStream out = new java.io.FileOutputStream(to)) {
-            byte[] buf = new byte[8192];
-            int n;
-            while ((n = in.read(buf)) != -1) out.write(buf, 0, n);
+    private static void reemplazarPlaceholders(XWPFDocument doc, Map<String, String> datos) {
+        for (Map.Entry<String, String> e : datos.entrySet()) {
+            replaceInDocument(doc, "{{" + e.getKey() + "}}", e.getValue());
         }
+        // Tags rotos de la plantilla original
+        replaceInDocument(doc, "{{documentacion}", safe(datos.get("documentacion")));
+        replaceInDocument(doc, "{{manifestaciones}", safe(datos.get("manifestaciones")));
+        replaceInDocument(doc, "{{ documentacion }}", safe(datos.get("documentacion")));
     }
 
-    private static File copiarPlantilla(Context context, String templateName) throws Exception {
-        String assetName = resolverPlantilla(context, templateName);
-        Log.i(TAG, "Plantilla: " + assetName);
-        File tempTemplate = new File(context.getCacheDir(), "temp_template.docx");
-        try (InputStream is = context.getAssets().open(assetName);
-             java.io.FileOutputStream fos = new java.io.FileOutputStream(tempTemplate)) {
-            byte[] buffer = new byte[8192];
-            int read;
-            while ((read = is.read(buffer)) != -1) fos.write(buffer, 0, read);
-        }
-        return tempTemplate;
+    private static void limpiarPlaceholdersRestantes(XWPFDocument doc) {
+        String[] leftovers = {
+                "{{ocurrencias}}", "{{documentacion}}", "{{manifestaciones}}", "{{negativa}}",
+                "{{fis_dni}}", "{{fis_nombres}}", "{{rec_dni}}", "{{rec_nombres}}", "{{rec_relacion}}",
+                "{{firma_f}}", "{{firma_r}}", "{{agente}}", "{{codigo}}", "{{registro}}"
+        };
+        for (String t : leftovers) replaceInDocument(doc, t, "");
     }
 
-    private static void llenarTablaPrecios(Document doc, List<Map<String, String>> productos) throws Exception {
+    private static void replaceInDocument(XWPFDocument doc, String find, String replace) {
+        if (find == null || find.isEmpty()) return;
+        String rep = replace != null ? replace : "";
+        for (XWPFParagraph p : doc.getParagraphs()) replaceInParagraph(p, find, rep);
+        for (XWPFTable table : doc.getTables()) {
+            for (XWPFTableRow row : table.getRows()) {
+                for (XWPFTableCell cell : row.getTableCells()) {
+                    for (XWPFParagraph p : cell.getParagraphs()) replaceInParagraph(p, find, rep);
+                }
+            }
+        }
+        doc.getHeaderList().forEach(h -> {
+            for (XWPFParagraph p : h.getParagraphs()) replaceInParagraph(p, find, rep);
+            for (XWPFTable table : h.getTables()) {
+                for (XWPFTableRow row : table.getRows()) {
+                    for (XWPFTableCell cell : row.getTableCells()) {
+                        for (XWPFParagraph p : cell.getParagraphs()) replaceInParagraph(p, find, rep);
+                    }
+                }
+            }
+        });
+        doc.getFooterList().forEach(f -> {
+            for (XWPFParagraph p : f.getParagraphs()) replaceInParagraph(p, find, rep);
+        });
+    }
+
+    /** Reemplazo tolerante a placeholders partidos en varios runs. */
+    private static void replaceInParagraph(XWPFParagraph paragraph, String find, String replace) {
+        String full = paragraph.getText();
+        if (full == null || !full.contains(find)) return;
+
+        List<XWPFRun> runs = paragraph.getRuns();
+        if (runs == null || runs.isEmpty()) return;
+
+        // Estrategia simple: juntar, reemplazar y reescribir en el primer run
+        StringBuilder sb = new StringBuilder();
+        for (XWPFRun run : runs) {
+            String t = run.getText(0);
+            if (t != null) sb.append(t);
+        }
+        String updated = sb.toString().replace(find, replace);
+        if (updated.equals(sb.toString())) return;
+
+        for (int i = runs.size() - 1; i >= 1; i--) {
+            paragraph.removeRun(i);
+        }
+        XWPFRun first = paragraph.getRuns().isEmpty() ? paragraph.createRun() : paragraph.getRuns().get(0);
+        first.setText(updated, 0);
+    }
+
+    private static void llenarTablaPrecios(XWPFDocument doc, List<Map<String, String>> productos) {
         if (productos == null || productos.isEmpty()) return;
-        Table table = buscarTablaConTexto(doc, "Producto Fiscalizado");
-        if (table == null) return;
+        XWPFTable table = buscarTabla(doc, "Producto Fiscalizado");
+        if (table == null) {
+            Log.e(TAG, "Tabla precios no encontrada");
+            return;
+        }
 
         Map<String, Integer> colPorProducto = new HashMap<>();
         colPorProducto.put("diesel b5 s-50", 1);
@@ -296,46 +287,143 @@ public class WordGenerator {
             }
             if (col == null) continue;
 
-            escribirCelda(table, ROW_PRICE, col, safe(p.get("p_price")));
-            escribirCelda(table, ROW_PUB, col, safe(p.get("p_pub")));
-            escribirCelda(table, ROW_SUR, col, safe(p.get("p_sur")));
-            escribirCelda(table, ROW_DESC, col, safe(p.get("p_desc")));
+            setCelda(table, ROW_PRICE, col, safe(p.get("p_price")));
+            setCelda(table, ROW_PUB, col, safe(p.get("p_pub")));
+            setCelda(table, ROW_SUR, col, safe(p.get("p_sur")));
+            setCelda(table, ROW_DESC, col, safe(p.get("p_desc")));
 
             String marca = safe(p.get("p_marca"));
             if (!marca.isEmpty() && (col == 6 || key.contains("otros"))) {
-                escribirCelda(table, ROW_MARCA, COL_MARCA, marca);
+                setCelda(table, ROW_MARCA, COL_MARCA, marca);
             }
         }
     }
 
-    private static void llenarTablaHechos(Document doc, List<Map<String, String>> hechos) throws Exception {
-        if (hechos == null || hechos.isEmpty()) return;
-        Table table = buscarTablaConTexto(doc, "INCUMPLIMIENTO");
-        if (table == null) return;
+    private static void llenarTablaHechos(XWPFDocument doc, List<Map<String, String>> hechos) {
+        if (hechos == null || hechos.isEmpty()) {
+            Log.e(TAG, "Sin hechos verificados que volcar al acta");
+            return;
+        }
+        XWPFTable table = buscarTabla(doc, "INCUMPLIMIENTO");
+        if (table == null) table = buscarTabla(doc, "HECHOS VERIFICADOS");
+        if (table == null) {
+            Log.e(TAG, "Tabla hechos no encontrada");
+            return;
+        }
 
+        // Filas del acta oficial: ítems 1,2,3,4,5,6
         int[] filasInc = {1, 2, 4, 5, 7, 8};
-        StringBuilder extras = new StringBuilder();
 
         for (Map<String, String> h : hechos) {
             String inc = safe(h.get("h_inc"));
             String red = safe(h.get("h_red"));
             if (red.isEmpty()) continue;
             int num = extraerNumeroIncumplimiento(inc);
-            if (num >= 1 && num <= 6) {
-                int rowIdx = filasInc[num - 1];
-                String actual = leerCelda(table, rowIdx, 2).replace("_", "").trim();
-                String nuevo = actual.isEmpty() ? red : actual + "\n" + red;
-                escribirCeldaConservandoAltura(table, rowIdx, 2, nuevo);
-            } else {
-                if (extras.length() > 0) extras.append("\n");
-                extras.append(inc).append(": ").append(red);
+            if (num < 1 || num > 6) {
+                Log.e(TAG, "Hecho ignorado (no es incumplimiento 1-6): " + inc);
+                continue;
             }
+            int rowIdx = filasInc[num - 1];
+            String actual = getCelda(table, rowIdx, 2).replace("_", "").trim();
+            String nuevo = actual.isEmpty() ? red : actual + "\n" + red;
+            setCelda(table, rowIdx, 2, nuevo);
+            Log.e(TAG, "Hecho colocado en incumplimiento " + num + " (fila " + rowIdx + ")");
         }
-        if (extras.length() > 0) {
-            String actual = leerCelda(table, filasInc[0], 2).replace("_", "").trim();
-            String nuevo = actual.isEmpty() ? extras.toString() : actual + "\n" + extras;
-            escribirCeldaConservandoAltura(table, filasInc[0], 2, nuevo);
+    }
+
+    /**
+     * Inserta firmas en la tabla oficial:
+     * col 0 = Fiscalizador, col 1 = Quien recibe.
+     */
+    private static void pegarFirmasEnTabla(XWPFDocument doc, Map<String, String> pathsFirmas) {
+        if (pathsFirmas == null) return;
+        XWPFTable table = buscarTabla(doc, "Firma del Fiscalizador");
+        if (table == null) table = buscarTabla(doc, "Firma de quien recibe");
+        if (table == null || table.getNumberOfRows() < 1) {
+            Log.e(TAG, "Tabla de firmas no encontrada");
+            return;
         }
+
+        String pathF = pathsFirmas.get("firma_f");
+        String pathR = pathsFirmas.get("firma_r");
+        Log.e(TAG, "Firmas paths f=" + pathF + " r=" + pathR
+                + " filasTabla=" + table.getNumberOfRows());
+
+        // Fila 0: zona de la rúbrica (puntos); si no, crear párrafo en esa celda
+        insertarFirmaEnCelda(table, 0, 0, pathF, "fiscalizador");
+        insertarFirmaEnCelda(table, 0, 1, pathR, "receptor");
+    }
+
+    private static void insertarFirmaEnCelda(XWPFTable table, int row, int col, String path, String label) {
+        if (path == null || path.trim().isEmpty()) {
+            Log.e(TAG, "Sin path para firma " + label);
+            return;
+        }
+        File img = new File(path);
+        if (!img.exists()) {
+            Log.e(TAG, "No existe archivo firma " + label + ": " + path);
+            return;
+        }
+        if (row >= table.getNumberOfRows()) return;
+        XWPFTableRow r = table.getRow(row);
+        if (r == null || col >= r.getTableCells().size()) return;
+        XWPFTableCell cell = r.getCell(col);
+        if (cell == null) return;
+
+        try {
+            // Limpiar puntos / texto previo de la celda
+            for (int i = cell.getParagraphs().size() - 1; i >= 0; i--) {
+                cell.removeParagraph(i);
+            }
+            XWPFParagraph p = cell.addParagraph();
+            XWPFRun run = p.createRun();
+            try (FileInputStream fis = new FileInputStream(img)) {
+                String name = img.getName().toLowerCase(Locale.ROOT);
+                int format = name.endsWith(".png") ? XWPFDocument.PICTURE_TYPE_PNG : XWPFDocument.PICTURE_TYPE_JPEG;
+                run.addPicture(fis, format, img.getName(), Units.toEMU(150), Units.toEMU(60));
+            }
+            Log.e(TAG, "Firma " + label + " insertada en celda [" + row + "," + col + "]");
+        } catch (Exception e) {
+            Log.e(TAG, "Error insertando firma " + label, e);
+        }
+    }
+
+    private static XWPFTable buscarTabla(XWPFDocument doc, String texto) {
+        String needle = texto.toLowerCase(Locale.ROOT);
+        for (XWPFTable table : doc.getTables()) {
+            StringBuilder sb = new StringBuilder();
+            for (XWPFTableRow row : table.getRows()) {
+                for (XWPFTableCell cell : row.getTableCells()) {
+                    sb.append(cell.getText()).append(' ');
+                }
+            }
+            if (sb.toString().toLowerCase(Locale.ROOT).contains(needle)) return table;
+        }
+        return null;
+    }
+
+    private static void setCelda(XWPFTable table, int row, int col, String text) {
+        if (row >= table.getNumberOfRows()) return;
+        XWPFTableRow r = table.getRow(row);
+        if (r == null || col >= r.getTableCells().size()) return;
+        XWPFTableCell cell = r.getCell(col);
+        if (cell == null) return;
+        // Limpiar y escribir
+        for (int i = cell.getParagraphs().size() - 1; i >= 0; i--) {
+            cell.removeParagraph(i);
+        }
+        XWPFParagraph p = cell.addParagraph();
+        XWPFRun run = p.createRun();
+        run.setFontSize(8);
+        run.setText(text != null ? text : "");
+    }
+
+    private static String getCelda(XWPFTable table, int row, int col) {
+        if (row >= table.getNumberOfRows()) return "";
+        XWPFTableRow r = table.getRow(row);
+        if (r == null || col >= r.getTableCells().size()) return "";
+        XWPFTableCell cell = r.getCell(col);
+        return cell != null ? cell.getText() : "";
     }
 
     private static int extraerNumeroIncumplimiento(String texto) {
@@ -349,104 +437,40 @@ public class WordGenerator {
         return -1;
     }
 
-    private static Table buscarTablaConTexto(Document doc, String texto) {
-        NodeCollection tables = doc.getChildNodes(NodeType.TABLE, true);
-        for (Table t : (Iterable<Table>) tables) {
-            if (t.getText() != null && t.getText().contains(texto)) return t;
-        }
-        return null;
-    }
-
-    private static void escribirCelda(Table table, int row, int col, String text) throws Exception {
-        if (row >= table.getRows().getCount()) return;
-        Row r = table.getRows().get(row);
-        if (col >= r.getCells().getCount()) return;
-        Cell cell = r.getCells().get(col);
-        Paragraph first = cell.getFirstParagraph();
-        if (first == null) {
-            first = new Paragraph(table.getDocument());
-            cell.appendChild(first);
-        }
-        first.removeAllChildren();
-        Run run = new Run(table.getDocument(), text != null ? text : "");
-        run.getFont().setSize(8);
-        first.appendChild(run);
-    }
-
-    private static void escribirCeldaConservandoAltura(Table table, int row, int col, String text) throws Exception {
-        if (row >= table.getRows().getCount()) return;
-        Row r = table.getRows().get(row);
-        if (col >= r.getCells().getCount()) return;
-        Cell cell = r.getCells().get(col);
-        String value = text != null ? text : "";
-
-        NodeCollection paragraphs = cell.getChildNodes(NodeType.PARAGRAPH, false);
-        if (paragraphs.getCount() == 0) {
-            Paragraph p = new Paragraph(table.getDocument());
-            Run run = new Run(table.getDocument(), value);
-            run.getFont().setSize(8);
-            p.appendChild(run);
-            cell.appendChild(p);
-            return;
-        }
-        Paragraph first = (Paragraph) paragraphs.get(0);
-        first.removeAllChildren();
-        Run run = new Run(table.getDocument(), value);
-        run.getFont().setSize(8);
-        first.appendChild(run);
-        // Deja el resto de párrafos (antes guiones) para no colapsar la fila
-        for (int i = 1; i < paragraphs.getCount(); i++) {
-            Paragraph p = (Paragraph) paragraphs.get(i);
-            String pt = p.getText().replace("\u0007", "").replace("_", "").trim();
-            if (pt.isEmpty()) p.removeAllChildren();
-        }
-    }
-
-    private static String leerCelda(Table table, int row, int col) {
-        if (row >= table.getRows().getCount()) return "";
-        Row r = table.getRows().get(row);
-        if (col >= r.getCells().getCount()) return "";
-        return r.getCells().get(col).getText().replace("\u0007", "").trim();
-    }
-
-    private static String safe(String v) { return v != null ? v : ""; }
-
-    private static String safeTrim(String v) {
-        if (v == null) return "";
-        String t = v.replace("\u0007", "").trim();
-        return t.length() > 40 ? t.substring(0, 40) : t;
-    }
-
     private static String resolverPlantilla(Context context, String preferred) {
-        String[] candidatos = { preferred, "plantilla.docx", "plantilla_acta_filled.docx", "plantilla_acta.docx" };
+        String[] candidatos = { preferred, "plantilla.docx" };
         for (String name : candidatos) {
             if (name == null || name.trim().isEmpty()) continue;
             try (InputStream is = context.getAssets().open(name)) {
                 if (is != null) return name;
             } catch (Exception ignored) {}
         }
-        try {
-            String[] root = context.getAssets().list("");
-            if (root != null) {
-                for (String f : root) {
-                    if (f != null && f.toLowerCase(Locale.ROOT).endsWith(".docx")) return f;
-                }
-            }
-        } catch (Exception ignored) {}
-        return preferred != null ? preferred : "plantilla.docx";
+        return "plantilla.docx";
     }
 
-    private static void pegarFirmaEnWord(Document doc, DocumentBuilder builder, String tag, String path) throws Exception {
-        if (path == null || !new File(path).exists()) {
-            doc.getRange().replace(tag, " ", new FindReplaceOptions());
-            return;
+    private static int contarPaginasPdf(File pdf) {
+        try (PdfDocument doc = new PdfDocument(new PdfReader(pdf.getAbsolutePath()))) {
+            return doc.getNumberOfPages();
+        } catch (Exception e) {
+            Log.w(TAG, "No se pudo contar páginas", e);
+            return 1;
         }
-        FindReplaceOptions opt = new FindReplaceOptions();
-        opt.setReplacingCallback(args -> {
-            builder.moveTo(args.getMatchNode());
-            builder.insertImage(path, 120, 60);
-            return ReplaceAction.REPLACE;
-        });
-        doc.getRange().replace(java.util.regex.Pattern.compile(java.util.regex.Pattern.quote(tag)), "", opt);
     }
+
+    private static byte[] leerArchivo(File f) throws Exception {
+        try (FileInputStream in = new FileInputStream(f)) {
+            return leerStream(in);
+        }
+    }
+
+    private static byte[] leerStream(InputStream in) throws Exception {
+        if (in == null) return new byte[0];
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        byte[] buf = new byte[8192];
+        int n;
+        while ((n = in.read(buf)) >= 0) bos.write(buf, 0, n);
+        return bos.toByteArray();
+    }
+
+    private static String safe(String v) { return v != null ? v : ""; }
 }
