@@ -19,7 +19,7 @@ import retrofit2.converter.gson.GsonConverterFactory;
 public class NetworkModule {
 
     // Emulador Android: http://10.0.2.2:3000/
-    // Celular físico (misma Wi‑Fi que el PC): http://<IP-LAN-PC>:3000/
+    // Celular físico (misma Wi‑Fi): http://<IP-LAN-PC>:3000/  (ej. http://192.168.0.10:3000/)
     private static final String BASE_URL = "http://10.0.2.2:3000/";
 
     /** URL base de la API (usada también por WordGenerator para PDF). */
