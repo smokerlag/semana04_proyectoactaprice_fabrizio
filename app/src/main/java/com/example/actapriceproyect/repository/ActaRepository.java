@@ -41,6 +41,26 @@ public class ActaRepository {
         return establecimientoDao.getAll();
     }
 
+    public Establecimiento getEstablecimientoById(int id) {
+        return establecimientoDao.getById(id);
+    }
+
+    // Importación masiva desde CSV
+    public void revisarYPrecargarDesdeCsv(android.content.Context context, Runnable onComplete) {
+        executorService.execute(() -> {
+            List<Establecimiento> existentes = establecimientoDao.getAll();
+            if (existentes == null || existentes.isEmpty()) {
+                List<Establecimiento> desdeCsv = com.example.actapriceproyect.utils.CsvUtil.cargarEstablecimientosDesdeCsv(context);
+                for (Establecimiento est : desdeCsv) {
+                    establecimientoDao.insert(est);
+                }
+            }
+            if (onComplete != null) {
+                onComplete.run();
+            }
+        });
+    }
+
     // CRUD Fiscalizaciones
     public void insertFiscalizacion(Fiscalizacion fiscalizacion) {
         executorService.execute(() -> {

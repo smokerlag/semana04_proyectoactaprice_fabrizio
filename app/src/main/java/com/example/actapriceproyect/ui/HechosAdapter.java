@@ -44,7 +44,6 @@ public class HechosAdapter extends RecyclerView.Adapter<HechosAdapter.ViewHolder
         }
         
         holder.etHecho.setText(h.hechoRedactado);
-        holder.etHecho.setHint("Describa: qué se observó, dónde (surtidor/panel) y qué dato se comparó.");
 
         holder.textWatcher = new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}

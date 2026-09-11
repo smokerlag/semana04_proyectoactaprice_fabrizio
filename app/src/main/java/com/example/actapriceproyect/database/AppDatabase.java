@@ -6,7 +6,7 @@ import androidx.room.RoomDatabase;
 import com.example.actapriceproyect.model.Establecimiento;
 import com.example.actapriceproyect.model.Fiscalizacion;
 
-@Database(entities = {Establecimiento.class, Fiscalizacion.class}, version = 2)
+@Database(entities = {Establecimiento.class, Fiscalizacion.class}, version = 5)
 public abstract class AppDatabase extends RoomDatabase {
     public abstract EstablecimientoDao establecimientoDao();
     public abstract FiscalizacionDao fiscalizacionDao();

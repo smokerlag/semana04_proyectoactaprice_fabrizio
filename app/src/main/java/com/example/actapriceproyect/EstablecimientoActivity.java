@@ -80,7 +80,7 @@ public class EstablecimientoActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        cargarDatos();
+        repository.revisarYPrecargarDesdeCsv(this, this::cargarDatos);
     }
 
     private void cargarDatos() {

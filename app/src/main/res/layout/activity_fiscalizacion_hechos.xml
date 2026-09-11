@@ -2,66 +2,76 @@
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="16dp">
+    android:fitsSystemWindows="true">
 
-    <TextView
-        android:id="@+id/tvTituloHechos"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Paso 5: Hechos Verificados"
-        android:textSize="20sp"
-        android:textStyle="bold"
-        android:layout_marginBottom="16dp"/>
-
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/rvHechos"
+    <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_below="@id/tvTituloHechos"
-        android:layout_above="@id/layoutOtros"
-        android:layout_marginBottom="16dp" />
+        android:paddingStart="32dp"
+        android:paddingEnd="32dp"
+        android:paddingTop="32dp"
+        android:paddingBottom="32dp">
 
-    <LinearLayout
-        android:id="@+id/layoutOtros"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:layout_above="@id/btnSiguiente"
-        android:layout_marginBottom="16dp">
+        <TextView
+            android:id="@+id/tvTituloHechos"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Paso 5: Hechos Verificados"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="16dp"/>
 
-        <com.google.android.material.textfield.TextInputLayout
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvHechos"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_below="@id/tvTituloHechos"
+            android:layout_above="@id/layoutOtros"
+            android:layout_marginBottom="16dp" />
+
+        <LinearLayout
+            android:id="@+id/layoutOtros"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Ocurrencias / Documentación"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense">
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/etOcurrencias"
+            android:orientation="vertical"
+            android:layout_above="@id/btnSiguiente"
+            android:layout_marginBottom="16dp">
+
+            <com.google.android.material.textfield.TextInputLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:inputType="textMultiLine"
-                android:minLines="2" />
-        </com.google.android.material.textfield.TextInputLayout>
+                android:hint="Ocurrencias / Documentación"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/etOcurrencias"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="textMultiLine"
+                    android:minLines="2" />
+            </com.google.android.material.textfield.TextInputLayout>
 
-        <com.google.android.material.textfield.TextInputLayout
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:hint="Observaciones"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/etObservaciones"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="textMultiLine"
+                    android:minLines="2" />
+            </com.google.android.material.textfield.TextInputLayout>
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/btnSiguiente"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:hint="Observaciones"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense">
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/etObservaciones"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:inputType="textMultiLine"
-                android:minLines="2" />
-        </com.google.android.material.textfield.TextInputLayout>
-    </LinearLayout>
+            android:layout_alignParentBottom="true"
+            android:layout_marginBottom="16dp"
+            android:text="Siguiente: Firmas" />
 
-    <Button
-        android:id="@+id/btnSiguiente"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_alignParentBottom="true"
-        android:text="Siguiente: Firmas" />
-
+    </RelativeLayout>
 </RelativeLayout>
